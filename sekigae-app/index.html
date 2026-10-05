@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="席替え">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f6f4ef">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>席替え</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --panel: #ffffff;
+    --ink: #1d2433;
+    --sub: #6b7280;
+    --line: #d9d4c7;
+    --accent: #e8590c;
+    --accent-ink: #ffffff;
+    --prep: #1c6dd0;
+    --board: #1f4d3a;
+    --board-ink: #e9f5ee;
+    --seat: #ffffff;
+    --seat-empty: #e7e3d8;
+    --landed: #fff3bf;
+    --danger: #c92a2a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  textarea, input { -webkit-user-select: text; user-select: text; font: inherit; }
+  button {
+    font: inherit; border: none; border-radius: 14px; cursor: pointer;
+    padding: 12px 20px; font-weight: 700;
+  }
+  button:active { transform: scale(0.97); }
+  .main { background: var(--accent); color: var(--accent-ink); }
+  .blue { background: var(--prep); color: #fff; }
+  .sub { background: #e9e5da; color: var(--ink); }
+  [hidden] { display: none !important; }
+
+  /* ---------- スタート画面 ---------- */
+  .start {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 48px; padding: 24px;
+  }
+  .start h1 { font-size: clamp(40px, 7vw, 72px); margin: 0; letter-spacing: 0.1em; }
+  .start-btns { display: flex; gap: 32px; flex-wrap: wrap; justify-content: center; }
+  .big {
+    width: min(320px, 80vw); height: 200px; font-size: 32px; border-radius: 28px;
+    box-shadow: 0 8px 0 rgba(0,0,0,0.15);
+  }
+
+  /* ---------- 事前設定 ---------- */
+  .prep { max-width: 1000px; margin: 0 auto; padding: 20px 16px 60px; }
+  .prep-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .prep-head h2 { margin: 0; font-size: 26px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px; margin-bottom: 16px; }
+  .card h3 { margin: 0 0 10px; font-size: 19px; }
+  .hint { color: var(--sub); font-size: 14px; margin: 4px 0 10px; line-height: 1.6; }
+  input[type=text] { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 18px; }
+  textarea { width: 100%; min-height: 160px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 16px; line-height: 1.6; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .status { font-weight: 700; }
+  .status.ng { color: var(--danger); }
+  .roster-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { background: #f1eee6; border-radius: 999px; padding: 4px 10px; font-size: 14px; }
+
+  /* ---------- 座席(共通) ---------- */
+  .board {
+    background: var(--board); color: var(--board-ink); text-align: center;
+    border-radius: 10px; padding: 8px; font-weight: 700; letter-spacing: 0.5em;
+    width: 60%; margin: 0 auto 12px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .seat {
+    background: var(--seat); border: 2px solid var(--line); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    min-height: 54px; padding: 4px; font-weight: 700; overflow: hidden;
+  }
+  .seat.empty { background: var(--seat-empty); border-style: dashed; color: var(--sub); }
+  .edit .seat { cursor: pointer; font-size: 14px; color: var(--sub); }
+  .edit .seat.empty { color: var(--sub); }
+
+  /* ---------- 教室に映す ---------- */
+  .show { height: 100vh; display: flex; flex-direction: column; padding: 12px 16px; gap: 10px; }
+  .show-top { display: flex; justify-content: space-between; align-items: center; }
+  .show-top .cls { font-size: 22px; font-weight: 800; }
+  .back { position: relative; overflow: hidden; background: #e9e5da; color: var(--sub); font-size: 14px; padding: 10px 14px; }
+  .back::after {
+    content: ""; position: absolute; left: 0; bottom: 0; height: 4px; width: 0;
+    background: var(--accent); transition: width 0s;
+  }
+  .back.pressing::after { width: 100%; transition: width 0.9s linear; }
+  .show .board { font-size: 20px; margin-bottom: 0; }
+  .show .grid { flex: 1; grid-template-rows: repeat(7, 1fr); gap: 8px; }
+  .show .seat { min-height: 0; font-size: clamp(16px, 2.4vw, 34px); }
+  .show .seat .nm { line-height: 1.15; word-break: keep-all; overflow-wrap: anywhere; }
+  .show .seat.spinning { border-color: var(--accent); }
+  .show .seat.spinning .nm { opacity: 0.55; }
+  .show .seat.landed { background: var(--landed); border-color: var(--accent); animation: pop 0.45s ease-out; }
+  @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  .show-top .banner { flex: 1; text-align: center; font-size: clamp(20px, 2.8vw, 34px); font-weight: 800; color: var(--accent); }
+  .show-body { flex: 1; display: flex; gap: 14px; min-height: 0; }
+  .show-main { flex: 1; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  /* 名簿欄は画面幅の約1/4(最大1/3)。座席表を主役にする */
+  .side {
+    flex: 0 0 25%; min-width: 180px; max-width: 33%;
+    display: flex; flex-direction: column; gap: 8px; min-height: 0;
+  }
+  .side h3 { margin: 0; font-size: clamp(14px, 1.4vw, 18px); }
+  .side .hint { margin: 0; font-size: 12px; }
+  .pool {
+    flex: 1; overflow-y: auto; align-content: start;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); grid-auto-rows: max-content; gap: 5px;
+  }
+  .pool button {
+    background: var(--panel); border: 2px solid var(--line); color: var(--ink);
+    text-align: left; padding: 5px 8px; font-size: clamp(12px, 1.15vw, 15px); border-radius: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pool button:disabled { opacity: 0.45; }
+  .actions { display: flex; flex-direction: column; gap: 8px; }
+  .actions button { width: 100%; font-size: clamp(14px, 1.4vw, 18px); padding: 12px 8px; }
+  .actions button:disabled { opacity: 0.45; }
+  .show .seat.unused { background: transparent; border-style: dotted; }
+  .show .seat.hop { background: var(--landed); border-color: var(--accent); }
+
+  .count {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(29,36,51,0.55); color: #fff; font-size: 40vh; font-weight: 900; z-index: 20;
+  }
+  .count span { animation: zoom 0.9s ease-out; }
+  @keyframes zoom { 0% { transform: scale(1.6); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(0.9); opacity: 0.9; } }
+
+  /* ---------- モーダル・トースト ---------- */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 30; padding: 16px; }
+  .modal { background: var(--panel); border-radius: 18px; padding: 24px; width: min(520px, 100%); max-height: 90vh; overflow: auto; }
+  .modal.wide { width: min(900px, 100%); }
+  .modal p { font-size: 18px; line-height: 1.7; white-space: pre-line; margin: 0 0 20px; }
+  .modal-btns { display: flex; justify-content: flex-end; gap: 10px; }
+  .toast {
+    position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%);
+    background: var(--ink); color: #fff; padding: 12px 24px; border-radius: 999px; font-weight: 700; z-index: 40;
+  }
+  .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .history-item:last-child { border-bottom: none; }
+  .modal .seat { font-size: 13px; min-height: 40px; }
+  .modal h3 { margin: 0 0 16px; font-size: 20px; }
+
+  /* クラスの切り替え・空席の配置 */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .tabs button { padding: 10px 16px; font-size: 16px; }
+  .tabs .add { background: transparent; border: 2px dashed var(--line); color: var(--sub); }
+  .card h4 { margin: 24px 0 4px; font-size: 17px; }
+  .layout-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .layout-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 12px; background: #fbfaf6;
+  }
+  .layout-item.on { border-color: var(--accent); background: #fff4e6; }
+  .layout-item .ln { flex: 1; font-weight: 700; font-size: 16px; }
+  .layout-item .meta { color: var(--sub); font-size: 13px; font-weight: 400; margin-left: 8px; }
+  .layout-item .now { color: var(--accent); font-size: 13px; margin-left: 8px; }
+  .layout-item button { padding: 8px 14px; font-size: 15px; }
+  .layout-item .del { background: transparent; color: var(--sub); padding: 8px 10px; }
+  .mini { display: grid; grid-template-columns: repeat(6, 7px); gap: 2px; }
+  .mini i { width: 7px; height: 7px; border-radius: 2px; background: #cfc8b8; display: block; }
+  .mini i.e { background: transparent; outline: 1px dashed #cfc8b8; outline-offset: -1px; }
+  .row input[type=text] { flex: 1; min-width: 180px; }
+  .class-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .class-pick button { font-size: 22px; padding: 22px 10px; }
+
+  /* 名簿の1人追加・削除 */
+  .chip { display: inline-flex; align-items: center; gap: 4px; }
+  .chip .x {
+    background: transparent; color: var(--sub); padding: 0 2px 0 4px; font-size: 15px;
+    border-radius: 6px; line-height: 1;
+  }
+  .row input[type=number] { width: 90px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 18px; }
+
+  /* 座席表の表示・手直し */
+  .meta { color: var(--sub); font-size: 14px; font-weight: 400; margin-left: 8px; }
+  .hist-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .hist-tools button { padding: 10px 16px; font-size: 15px; }
+  .hist-tools button.on { background: var(--accent); color: #fff; }
+  #hgrid .seat { font-size: 14px; min-height: 46px; }
+  #hgrid .seat.can { cursor: pointer; border-color: #b9b1a0; }
+  #hgrid .seat.pick { background: var(--landed); border-color: var(--accent); border-width: 3px; }
+
+  /* 印刷用(画面には出さない) */
+  #print { display: none; }
+  @media print {
+    @page { size: A4 landscape; margin: 10mm; }
+    body { background: #fff; }
+    body > *:not(#print) { display: none !important; }
+    #print { display: block; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #print h1 { font-size: 20pt; margin: 0 0 2mm; }
+    #print .date { font-size: 10pt; color: #555; margin: 0 0 3mm; }
+    #print .board { background: #fff; color: #000; border: 2px solid #000; padding: 2mm; margin-bottom: 4mm; }
+    #print .grid { gap: 2.5mm; }
+    #print .seat { min-height: 19mm; font-size: 15pt; border: 1.5px solid #444; background: #fff; border-radius: 3mm; }
+    #print .seat.empty { border: 1px dashed #aaa; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =========================================================
+   席替えアプリ 最小版
+   - データはこの端末のブラウザ内(localStorage)にだけ保存します
+   ========================================================= */
+
+const ROWS = 7;          // 縦(前→後ろ)
+const COLS = 6;          // 横
+const SEATS = ROWS * COLS;
+const KEY = 'sekigae-data-v1';
+
+/* ---------- データ ---------- */
+function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function newClass(name) {
+  // layouts = 名前をつけて保存した空席の配置(授業ごとの切り替え用)
+  return { id: newId(), name: name, students: [], empty: [], layouts: [], history: [] };
+}
+function normalize(d) {
+  if (!d || !Array.isArray(d.classes) || d.classes.length === 0) d = { classes: [newClass('1組')] };
+  d.classes.forEach(c => {
+    c.id = c.id || newId();
+    c.students = c.students || [];
+    c.empty = c.empty || [];
+    c.layouts = c.layouts || [];
+    c.history = c.history || [];
+  });
+  if (!d.classes.some(c => c.id === d.currentId)) d.currentId = d.classes[0].id;
+  d.version = 2;
+  return d;
+}
+function loadData() {
+  let d = null;
+  try {
+    const s = localStorage.getItem(KEY);
+    if (s) d = JSON.parse(s);
+  } catch (e) {}
+  return normalize(d);
+}
+function saveData() {
+  try { localStorage.setItem(KEY, JSON.stringify(data)); return true; }
+  catch (e) { return false; }
+}
+let data = loadData();
+let cls = data.classes.find(c => c.id === data.currentId);   // いま選んでいるクラス
+function selectClass(id) {
+  cls = data.classes.find(c => c.id === id) || data.classes[0];
+  data.currentId = cls.id;
+  saveData();
+}
+
+/* ---------- 小道具 ---------- */
+const app = document.getElementById('app');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clone = o => JSON.parse(JSON.stringify(o));
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+/* ボタンを並べて選ばせる。押したボタンの番号を返す(最後のボタンが強調表示) */
+function choose(msg, labels) {
+  return new Promise(res => {
+    const m = document.createElement('div');
+    m.className = 'modal-bg';
+    m.innerHTML = `<div class="modal"><p>${esc(msg)}</p><div class="modal-btns">
+      ${labels.map((l, k) => `<button class="${k === labels.length - 1 ? 'main' : 'sub'}" data-v="${k}">${esc(l)}</button>`).join('')}
+      </div></div>`;
+    m.addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      m.remove();
+      res(+b.dataset.v);
+    });
+    document.body.appendChild(m);
+  });
+}
+function modal(msg, okText, cancelText) {
+  return cancelText
+    ? choose(msg, [cancelText, okText]).then(v => v === 1)
+    : choose(msg, [okText]).then(() => true);
+}
+function htmlModal(inner) {
+  const m = document.createElement('div');
+  m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal wide">${inner}<div class="modal-btns" style="margin-top:16px"><button class="main">閉じる</button></div></div>`;
+  m.querySelector('.modal-btns button').onclick = () => m.remove();
+  document.body.appendChild(m);
+}
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(x => x.remove());   // 前の通知と重ならないように
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+function longPress(btn, ms, fn) {
+  let timer = null;
+  const start = e => {
+    e.preventDefault();
+    btn.classList.add('pressing');
+    timer = setTimeout(() => { btn.classList.remove('pressing'); fn(); }, ms);
+  };
+  const cancel = () => { clearTimeout(timer); btn.classList.remove('pressing'); };
+  btn.addEventListener('pointerdown', start);
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => btn.addEventListener(ev, cancel));
+}
+
+/* ---------- 名簿の読み込み ----------
+   1行に1人。「番号 氏名」「番号<タブ>氏名」「氏名だけ」に対応 */
+function parseRoster(text) {
+  const out = [];
+  text.split(/\r?\n/).forEach(line => {
+    const t = line.trim();
+    if (!t) return;
+    let no = null, name;
+    const parts = t.split(/\t|,|,/).map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+      no = Number(parts[0]);
+      name = parts.slice(1).join(' ');
+    } else {
+      const m = t.match(/^(\d+)[\s\u3000.:：、]+(.+)$/);
+      if (m) { no = Number(m[1]); name = m[2].trim(); }
+      else name = t;
+    }
+    out.push({ no: no, name: name });
+  });
+  out.forEach((s, i) => { if (s.no == null) s.no = i + 1; });
+  return out;
+}
+function rosterToText(students) {
+  return students.map(s => `${s.no}\t${s.name}`).join('\n');
+}
+
+/* ---------- 保存前チェック ---------- */
+function checkClass(c) {
+  const avail = SEATS - c.empty.length;
+  if (c.students.length === 0) return '名簿が空です。名簿を読み込んでください。';
+  if (c.students.length > avail) {
+    return `席が足りません。\n生徒 ${c.students.length}人 に対して、使える席が ${avail}席 です。\n空席をあと ${c.students.length - avail}席 減らしてください。`;
+  }
+  return null;
+}
+
+/* ---------- 配置 ---------- */
+function makeAssignment(c) {
+  const avail = [];
+  for (let i = 0; i < SEATS; i++) if (!c.empty.includes(i)) avail.push(i);  // 前の列から順
+  const st = shuffle(c.students.slice());
+  const res = {};
+  st.forEach((s, k) => { res[avail[k]] = s; });
+  return res;
+}
+
+/* ---------- 座席表のHTML ---------- */
+function gridHtml(cellFn) {
+  let h = '';
+  for (let i = 0; i < SEATS; i++) h += cellFn(i);
+  return h;
+}
+
+/* =========================================================
+   画面1:スタート
+   ========================================================= */
+function renderStart() {
+  stopAll();
+  app.innerHTML = `
+    <div class="start">
+      <h1>席替え</h1>
+      <div class="start-btns">
+        <button class="big blue" id="goPrep">事前設定</button>
+        <button class="big main" id="goShow">教室に映す</button>
+      </div>
+    </div>`;
+  document.getElementById('goPrep').onclick = async () => {
+    const ok = await modal('事前設定には、生徒に見せたくない情報が表示されます。\n画面ミラーリングは止めましたか?', '止めた', 'やめる');
+    if (ok) renderPrep();
+  };
+  document.getElementById('goShow').onclick = () => {
+    if (data.classes.length === 1) openShow(data.classes[0]);
+    else pickClass();
+  };
+}
+
+/* 映すクラスを選ぶ(クラス名だけが表示されるので、映っていても大丈夫) */
+function pickClass() {
+  const m = document.createElement('div');
+  m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal wide"><h3>どのクラスを映しますか?</h3>
+    <div class="class-pick">${data.classes.map(c =>
+      `<button class="${c.id === cls.id ? 'main' : 'sub'}" data-id="${c.id}">${esc(c.name)}</button>`).join('')}</div>
+    <div class="modal-btns" style="margin-top:20px"><button class="sub">やめる</button></div></div>`;
+  m.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    m.remove();
+    if (b.dataset.id) openShow(data.classes.find(c => c.id === b.dataset.id));
+  });
+  document.body.appendChild(m);
+}
+function openShow(c) {
+  const err = checkClass(c);
+  if (err) { modal(`${c.name} はまだ教室に映せません。\n\n` + err + '\n\n「事前設定」で設定してください。', 'OK'); return; }
+  selectClass(c.id);
+  renderShow();
+}
+
+/* =========================================================
+   画面2:事前設定
+   ========================================================= */
+let draft = null;
+let dirty = false;
+
+function renderPrep() {
+  draft = clone({ name: cls.name, students: cls.students, empty: cls.empty });
+  dirty = false;
+  app.innerHTML = `
+    <div class="prep">
+      <div class="prep-head">
+        <h2>事前設定</h2>
+        <div class="row" style="margin:0">
+          <button class="sub" id="back">スタートへ</button>
+          <button class="main" id="save">保存する</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>クラス</h3>
+        <p class="hint">クラスをタップすると、そのクラスの名簿と空席の配置がすぐに読み込まれます。</p>
+        <div class="tabs" id="tabs"></div>
+        <div class="row">
+          <input type="text" id="cname" value="${esc(draft.name)}" placeholder="クラス名">
+          <button class="sub" id="delClass">このクラスを削除</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>名簿</h3>
+        <p class="hint">Excelなどからコピーして貼り付けてください。1行に1人です。<br>
+        「番号 氏名」「番号(タブ)氏名」「氏名だけ」のどれでも読み込めます。</p>
+        <textarea id="roster" placeholder="1&#9;山田 太郎&#10;2&#9;佐藤 花子">${esc(rosterToText(draft.students))}</textarea>
+        <div class="row">
+          <button class="blue" id="load">名簿を読み込む</button>
+          <span id="rcount" class="status"></span>
+        </div>
+        <div class="roster-list" id="rlist"></div>
+        <h4>1人ずつ追加・削除(転入・転出など)</h4>
+        <p class="hint">名前の横の「×」で名簿から外せます。番号を空けておくと、最後の番号の次になります。</p>
+        <div class="row">
+          <input type="number" id="addNo" placeholder="番号" min="1" inputmode="numeric">
+          <input type="text" id="addName" placeholder="氏名">
+          <button class="blue" id="addOne">1人追加</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>座席(縦${ROWS} × 横${COLS})</h3>
+        <p class="hint">席をタップすると「空席」になります。もう一度タップすると戻ります。<br>
+        生徒は前の列から順に座るので、余った席は後ろ側が空きます。</p>
+        <div class="edit">
+          <div class="board">黒板</div>
+          <div class="grid" id="pgrid"></div>
+        </div>
+        <p class="status" id="seatStatus" style="margin-top:12px"></p>
+        <div class="row"><button class="sub" id="clearEmpty">空席をすべて解除</button></div>
+
+        <h4>保存した空席の配置</h4>
+        <p class="hint">授業や教室ごとに空席が変わる場合は、名前をつけて保存しておくと、次からはワンタップで読み込めます。</p>
+        <div class="layout-list" id="layouts"></div>
+        <div class="row">
+          <input type="text" id="lname" placeholder="例:理科室、3時間目、テスト用">
+          <button class="blue" id="saveLayout">今の空席を保存</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>これまでの座席表</h3>
+        <div id="hist"></div>
+      </div>
+    </div>`;
+
+  const $ = id => document.getElementById(id);
+  const sameSet = (a, b) => a.length === b.length && a.every(x => b.includes(x));
+
+  /* ---- 描画 ---- */
+  function drawTabs() {
+    $('tabs').innerHTML = data.classes.map(c =>
+      `<button class="${c.id === cls.id ? 'main' : 'sub'}" data-id="${c.id}">${esc(c.id === cls.id ? (draft.name || '名前なし') : c.name)}</button>`).join('')
+      + `<button class="add" id="addClass">+ クラスを追加</button>`;
+  }
+  function drawRoster() {
+    $('rcount').textContent = `${draft.students.length}人`;
+    $('rlist').innerHTML = draft.students.map((s, k) =>
+      `<span class="chip">${s.no} ${esc(s.name)}<button class="x" data-rm="${k}" aria-label="名簿から外す">×</button></span>`).join('');
+  }
+  function drawGrid() {
+    $('pgrid').innerHTML = gridHtml(i => {
+      const e = draft.empty.includes(i);
+      return `<div class="seat ${e ? 'empty' : ''}" data-i="${i}">${e ? '空席' : ''}</div>`;
+    });
+  }
+  function drawSeatStatus() {
+    const avail = SEATS - draft.empty.length;
+    const n = draft.students.length;
+    const el = $('seatStatus');
+    el.textContent = `空席 ${draft.empty.length}席 / 使える席 ${avail}席 / 生徒 ${n}人` + (n > avail ? ` ― 席が ${n - avail}席 足りません` : '');
+    el.classList.toggle('ng', n > avail);
+  }
+  function drawLayouts() {
+    if (cls.layouts.length === 0) {
+      $('layouts').innerHTML = '<p class="hint" style="margin:0">まだありません。</p>';
+      return;
+    }
+    $('layouts').innerHTML = cls.layouts.map(l => {
+      const on = sameSet(l.empty, draft.empty);
+      return `<div class="layout-item ${on ? 'on' : ''}">
+        <div class="mini">${gridHtml(i => `<i class="${l.empty.includes(i) ? 'e' : ''}"></i>`)}</div>
+        <span class="ln">${esc(l.name)}<span class="meta">空席 ${l.empty.length}席</span>${on ? '<span class="now">使用中</span>' : ''}</span>
+        <button class="blue" data-load="${l.id}">読み込む</button>
+        <button class="del" data-del="${l.id}" aria-label="削除">削除</button>
+      </div>`;
+    }).join('');
+  }
+  function drawHistory() {
+    const h = cls.history.slice().reverse();
+    if (h.length === 0) { $('hist').innerHTML = '<p class="hint">まだありません。「教室に映す」で確定するとここに残ります。</p>'; return; }
+    $('hist').innerHTML = h.map((x, k) => `
+      <div class="history-item">
+        <span>${fmtDate(x.at)}${x.editedAt ? '<span class="meta">手直しあり</span>' : ''}</span>
+        <button class="sub" data-k="${h.length - 1 - k}">開く(印刷・入れ替え)</button>
+      </div>`).join('');
+    $('hist').querySelectorAll('button').forEach(b => b.onclick = () => showHistory(cls.history[+b.dataset.k], drawHistory));
+  }
+  const changed = () => { dirty = true; };
+
+  /* ---- 保存 ---- */
+  function doSave(quiet) {
+    // 名簿欄を書き換えたまま「読み込む」を押し忘れた場合も拾う
+    const parsed = parseRoster($('roster').value);
+    if (rosterToText(parsed) !== rosterToText(draft.students)) {
+      draft.students = parsed;
+      drawRoster(); drawSeatStatus();
+    }
+    draft.name = draft.name.trim() || '名前なし';
+    if (draft.students.length > 0) {
+      const err = checkClass(draft);
+      if (err) { modal('この設定では席替えができません。\n\n' + err, 'OK'); return false; }
+    }
+    cls.name = draft.name;
+    cls.students = clone(draft.students);
+    cls.empty = draft.empty.slice();
+    if (!saveData()) { modal('保存できませんでした。\nSafariの設定でWebサイトのデータ保存が許可されているか確認してください。', 'OK'); return false; }
+    dirty = false;
+    drawTabs();
+    if (!quiet) toast(draft.students.length ? '保存しました' : '保存しました(名簿はまだ空です)');
+    return true;
+  }
+
+  /* 保存していない変更があるとき、離れる前に確認する。続けてよければ true */
+  async function leaveOk(action) {
+    if (!dirty) return true;
+    const v = await choose(`保存していない変更があります。\n保存してから${action}か?`, ['やめる', '保存せずに' + action, '保存して' + action]);
+    if (v === 0) return false;
+    if (v === 2) return doSave(true);
+    return true;
+  }
+
+  /* ---- クラス ---- */
+  $('tabs').onclick = async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.id === 'addClass') {
+      if (!(await leaveOk('追加します'))) return;
+      const c = newClass(`${data.classes.length + 1}組`);
+      data.classes.push(c);
+      selectClass(c.id);
+      renderPrep();
+      document.getElementById('cname').select();
+      toast('クラスを追加しました。クラス名と名簿を入れてください');
+      return;
+    }
+    if (b.dataset.id === cls.id) return;
+    if (!(await leaveOk('切り替えます'))) return;
+    selectClass(b.dataset.id);
+    renderPrep();
+    toast(`${cls.name} を読み込みました`);
+  };
+  $('cname').oninput = e => { draft.name = e.target.value; changed(); drawTabs(); };
+  $('delClass').onclick = async () => {
+    if (data.classes.length === 1) { modal('クラスが1つしかないので削除できません。', 'OK'); return; }
+    const ok = await modal(`「${cls.name}」を削除しますか?\n名簿・保存した空席の配置・これまでの座席表もすべて消えます。元に戻せません。`, '削除する', 'やめる');
+    if (!ok) return;
+    data.classes = data.classes.filter(c => c !== cls);
+    selectClass(data.classes[0].id);
+    renderPrep();
+    toast('削除しました');
+  };
+
+  /* ---- 名簿 ---- */
+  $('roster').oninput = changed;
+  $('load').onclick = () => {
+    draft.students = parseRoster($('roster').value);
+    $('roster').value = rosterToText(draft.students);
+    changed();
+    drawRoster(); drawSeatStatus();
+    toast(`${draft.students.length}人を読み込みました`);
+  };
+
+  function setRoster(list) {
+    draft.students = list.slice().sort((a, b) => a.no - b.no);
+    $('roster').value = rosterToText(draft.students);
+    changed();
+    drawRoster(); drawSeatStatus();
+  }
+  $('addOne').onclick = () => {
+    const name = $('addName').value.trim();
+    if (!name) { modal('氏名を入れてください。', 'OK'); return; }
+    const no = $('addNo').value ? Number($('addNo').value)
+      : draft.students.reduce((m, s) => Math.max(m, s.no), 0) + 1;
+    const dup = draft.students.find(s => s.no === no);
+    if (dup) { modal(`番号 ${no} はすでに ${dup.name} さんです。\n別の番号にするか、番号を空けてください。`, 'OK'); return; }
+    setRoster(draft.students.concat([{ no: no, name: name }]));
+    $('addNo').value = ''; $('addName').value = '';
+    toast(`${no} ${name} さんを追加しました。「保存する」で確定します`);
+  };
+  $('rlist').onclick = async e => {
+    const b = e.target.closest('button[data-rm]');
+    if (!b) return;
+    const st = draft.students[+b.dataset.rm];
+    const ok = await modal(`${st.no} ${st.name} さんを名簿から外しますか?\n(これまでの座席表には残ります)`, '外す', 'やめる');
+    if (!ok) return;
+    setRoster(draft.students.filter(x => x !== st));
+    toast(`${st.name} さんを外しました。「保存する」で確定します`);
+  };
+
+  /* ---- 座席 ---- */
+  $('pgrid').onclick = e => {
+    const s = e.target.closest('.seat');
+    if (!s) return;
+    const i = +s.dataset.i;
+    const k = draft.empty.indexOf(i);
+    if (k >= 0) draft.empty.splice(k, 1); else draft.empty.push(i);
+    draft.empty.sort((x, y) => x - y);
+    changed();
+    drawGrid(); drawSeatStatus(); drawLayouts();
+  };
+  $('clearEmpty').onclick = () => {
+    draft.empty = [];
+    changed();
+    drawGrid(); drawSeatStatus(); drawLayouts();
+  };
+
+  /* ---- 空席の配置の保存・読み込み ---- */
+  $('saveLayout').onclick = async () => {
+    const name = $('lname').value.trim() || `配置${cls.layouts.length + 1}`;
+    const same = cls.layouts.find(l => l.name === name);
+    if (same) {
+      const ok = await modal(`「${name}」はすでにあります。今の空席で上書きしますか?`, '上書きする', 'やめる');
+      if (!ok) return;
+      same.empty = draft.empty.slice();
+    } else {
+      cls.layouts.push({ id: newId(), name: name, empty: draft.empty.slice() });
+    }
+    if (!saveData()) { modal('保存できませんでした。', 'OK'); return; }
+    $('lname').value = '';
+    drawLayouts();
+    toast(`「${name}」を保存しました`);
+  };
+  $('layouts').onclick = async e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.load) {
+      const l = cls.layouts.find(x => x.id === b.dataset.load);
+      draft.empty = l.empty.slice();
+      changed();
+      drawGrid(); drawSeatStatus(); drawLayouts();
+      // 読み込んだらそのまま保存して、すぐ教室に映せる状態にする
+      if (doSave(true)) toast(`「${l.name}」を読み込みました`);
+    } else if (b.dataset.del) {
+      const l = cls.layouts.find(x => x.id === b.dataset.del);
+      const ok = await modal(`保存した配置「${l.name}」を削除しますか?`, '削除する', 'やめる');
+      if (!ok) return;
+      cls.layouts = cls.layouts.filter(x => x !== l);
+      saveData();
+      drawLayouts();
+    }
+  };
+
+  $('save').onclick = () => { doSave(false); drawLayouts(); };
+  $('back').onclick = async () => {
+    if (!(await leaveOk('戻ります'))) return;
+    renderStart();
+  };
+
+  drawTabs(); drawRoster(); drawGrid(); drawSeatStatus(); drawLayouts(); drawHistory();
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function seatMap(h) {
+  const map = {};
+  h.seats.forEach(s => { map[s.i] = s; });
+  return map;
+}
+/* 座席表を開く:確認・入れ替え・印刷・画像保存 */
+function showHistory(h, onChange) {
+  let swapping = false, sel = null;
+  const blocked = i => (h.empty || []).includes(i);
+  const m = document.createElement('div');
+  m.className = 'modal-bg';
+  m.innerHTML = `<div class="modal wide">
+    <h3>${esc(cls.name)} の座席表<span class="meta" id="hMeta"></span></h3>
+    <div class="hist-tools">
+      <button class="sub" id="hSwap">席を入れ替える</button>
+      <button class="sub" id="hPrint">印刷・PDF</button>
+      <button class="sub" id="hImg">画像で保存</button>
+    </div>
+    <p class="hint" id="hHint" hidden>入れ替えたい2人を順にタップしてください。生徒→空いている席の順にタップすると移動します。変更はすぐに保存されます。</p>
+    <div class="board">黒板</div>
+    <div class="grid" id="hgrid"></div>
+    <div class="modal-btns" style="margin-top:16px"><button class="main" id="hClose">閉じる</button></div>
+  </div>`;
+  const q = sel_ => m.querySelector(sel_);
+  function draw() {
+    const map = seatMap(h);
+    q('#hMeta').textContent = fmtDate(h.at) + (h.editedAt ? '(手直しあり)' : '');
+    q('#hgrid').innerHTML = gridHtml(i => {
+      const s = map[i];
+      const cl = ['seat', s ? '' : 'empty', swapping && !blocked(i) ? 'can' : '', sel === i ? 'pick' : ''].join(' ');
+      return `<div class="${cl}" data-i="${i}">${s ? esc(s.name) : ''}</div>`;
+    });
+  }
+  q('#hgrid').onclick = e => {
+    if (!swapping) return;
+    const c = e.target.closest('.seat');
+    if (!c) return;
+    const i = +c.dataset.i;
+    if (blocked(i)) return;
+    const map = seatMap(h);
+    if (sel === null) { if (map[i]) { sel = i; draw(); } return; }
+    if (sel === i) { sel = null; draw(); return; }
+    const a = map[sel], b = map[i];
+    a.i = i;
+    if (b) b.i = sel;
+    sel = null;
+    h.editedAt = new Date().toISOString();
+    if (!saveData()) { modal('保存できませんでした。', 'OK'); return; }
+    draw();
+    toast(b ? `${a.name} さんと ${b.name} さんを入れ替えました` : `${a.name} さんを移動しました`);
+  };
+  q('#hSwap').onclick = () => {
+    swapping = !swapping; sel = null;
+    q('#hSwap').textContent = swapping ? '入れ替えを終える' : '席を入れ替える';
+    q('#hSwap').classList.toggle('on', swapping);
+    q('#hHint').hidden = !swapping;
+    draw();
+  };
+  q('#hPrint').onclick = () => printChart(h);
+  q('#hImg').onclick = () => saveImage(h);
+  q('#hClose').onclick = () => { m.remove(); if (onChange) onChange(); };
+  document.body.appendChild(m);
+  draw();
+}
+
+/* 印刷(iPadでは印刷画面から「PDFとして保存」もできる) */
+function printChart(h) {
+  let p = document.getElementById('print');
+  if (!p) { p = document.createElement('div'); p.id = 'print'; document.body.appendChild(p); }
+  const map = seatMap(h);
+  p.innerHTML = `<h1>${esc(cls.name)} 座席表</h1><p class="date">${fmtDate(h.at)}</p>
+    <div class="board">黒板</div>
+    <div class="grid">${gridHtml(i => map[i] ? `<div class="seat">${esc(map[i].name)}</div>` : '<div class="seat empty"></div>')}</div>`;
+  window.print();
+}
+
+/* 画像(PNG)にして保存。iPadでは共有メニューから「画像を保存」できる */
+async function saveImage(h) {
+  const W = 1600, pad = 56, gap = 14, y0 = 220, ch = 112;
+  const cw = (W - pad * 2 - gap * (COLS - 1)) / COLS;
+  const H = y0 + ROWS * ch + (ROWS - 1) * gap + pad;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  const font = (w, px) => `${w} ${px}px -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif`;
+  const rr = (x, y, w, hh, r) => {
+    g.beginPath();
+    g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + hh, r); g.arcTo(x + w, y + hh, x, y + hh, r);
+    g.arcTo(x, y + hh, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  };
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  g.fillStyle = '#1d2433'; g.font = font(800, 52); g.fillText(`${cls.name} 座席表`, pad, 90);
+  g.fillStyle = '#6b7280'; g.font = font(400, 28); g.fillText(fmtDate(h.at), pad, 136);
+  const bw = W * 0.6, bx = (W - bw) / 2;
+  rr(bx, 156, bw, 46, 10); g.fillStyle = '#1f4d3a'; g.fill();
+  g.fillStyle = '#e9f5ee'; g.font = font(700, 26); g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('黒 板', W / 2, 179);
+  const map = seatMap(h);
+  for (let i = 0; i < SEATS; i++) {
+    const r = Math.floor(i / COLS), c = i % COLS;
+    const x = pad + c * (cw + gap), y = y0 + r * (ch + gap);
+    rr(x, y, cw, ch, 12);
+    if (map[i]) {
+      g.fillStyle = '#ffffff'; g.fill(); g.lineWidth = 3; g.strokeStyle = '#9a9384'; g.stroke();
+      let px = 40;
+      do { g.font = font(700, px); px -= 2; } while (g.measureText(map[i].name).width > cw - 24 && px > 16);
+      g.fillStyle = '#1d2433'; g.fillText(map[i].name, x + cw / 2, y + ch / 2);
+    } else {
+      g.fillStyle = '#f1eee6'; g.fill(); g.setLineDash([8, 6]); g.lineWidth = 2; g.strokeStyle = '#cfc8b8'; g.stroke(); g.setLineDash([]);
+    }
+  }
+  const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+  const d = new Date(h.at);
+  const fname = `座席表_${cls.name}_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.png`;
+  const file = new File([blob], fname, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: fname }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  toast('画像を保存しました');
+}
+
+/* =========================================================
+   画面3:教室に映す
+   ========================================================= */
+/* 決め方は3つ。1つの画面の中で組み合わせて使える
+   1. 全員まとめて決める(まだ誰も決まっていないとき)
+   2. 名前をタップした生徒の席を1人ずつ決める
+   3. まだ決まっていない生徒をまとめて決める */
+let timers = {};       // 席番号 → シャッフル中のタイマー
+let current = {};      // 席番号 → 生徒
+let usable = [];       // この授業で使う席(前の列から人数分)
+let busy = false;
+let committed = false;
+let runId = 0;         // 画面を離れたら進行中の演出を止めるための番号
+
+function stopAll() {
+  Object.values(timers).forEach(t => clearInterval(t));
+  timers = {};
+  busy = false;
+  runId++;
+}
+
+const seatCell = i => document.querySelector(`#sgrid .seat[data-i="${i}"]`);
+const undecided = () => {
+  const done = new Set(Object.values(current));
+  return cls.students.filter(s => !done.has(s));
+};
+const freeSeats = () => usable.filter(i => !(i in current));
+function setBanner(t) { const b = document.getElementById('banner'); if (b) b.textContent = t; }
+function land(i) {
+  const c = seatCell(i);
+  c.classList.remove('spinning', 'hop');
+  c.classList.add('landed');
+  c.innerHTML = `<span class="nm">${esc(current[i].name)}</span>`;
+}
+
+function renderShow() {
+  stopAll();
+  current = {};
+  committed = false;
+  const avail = [];
+  for (let i = 0; i < SEATS; i++) if (!cls.empty.includes(i)) avail.push(i);
+  usable = avail.slice(0, cls.students.length);
+
+  app.innerHTML = `
+    <div class="show">
+      <div class="show-top">
+        <span class="cls">${esc(cls.name)}</span>
+        <span class="banner" id="banner"></span>
+        <button class="back" id="back">長押しでスタートへ</button>
+      </div>
+      <div class="show-body">
+        <div class="show-main">
+          <div class="board">黒板</div>
+          <div class="grid" id="sgrid">${gridHtml(i => cls.empty.includes(i)
+            ? `<div class="seat empty" data-i="${i}"></div>`
+            : usable.includes(i)
+              ? `<div class="seat" data-i="${i}"><span class="nm">?</span></div>`
+              : `<div class="seat unused" data-i="${i}"></div>`)}</div>
+        </div>
+        <div class="side">
+          <h3 id="left"></h3>
+          <p class="hint" id="pickHint">名前をタップすると、その人の席を決めます</p>
+          <div class="pool" id="pool"></div>
+          <div class="actions">
+            <button class="main" id="bulk"></button>
+            <button class="blue" id="commit" hidden>この席で確定</button>
+            <button class="sub" id="reset" hidden>最初からやり直す</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const $ = id => document.getElementById(id);
+  longPress($('back'), 900, renderStart);
+  $('bulk').onclick = decideRest;
+  $('pool').onclick = e => {
+    const b = e.target.closest('button');
+    if (!b || busy) return;
+    decideOne(cls.students[+b.dataset.k]);
+  };
+  $('reset').onclick = async () => {
+    if (busy) return;
+    const ok = await modal('今決まっている席をすべて取り消して、最初からやり直しますか?', 'やり直す', 'やめる');
+    if (ok) renderShow();
+  };
+  $('commit').onclick = () => {
+    if (busy || committed || undecided().length) return;
+    cls.history.push({
+      at: new Date().toISOString(),
+      empty: cls.empty.slice(),
+      seats: Object.keys(current).map(i => ({ i: Number(i), no: current[i].no, name: current[i].name }))
+    });
+    if (!saveData()) { modal('保存できませんでした。', 'OK'); cls.history.pop(); return; }
+    committed = true;
+    refreshPanel();
+    toast('座席表を保存しました');
+  };
+  refreshPanel();
+}
+
+function refreshPanel() {
+  const $ = id => document.getElementById(id);
+  if (!$('pool')) return;
+  const rest = undecided();
+  const done = cls.students.length - rest.length;
+  $('left').textContent = rest.length ? `まだ決まっていない人:${rest.length}人` : '全員の席が決まりました';
+  $('pickHint').hidden = rest.length === 0;
+  $('pool').innerHTML = rest.map(s =>
+    `<button data-k="${cls.students.indexOf(s)}" ${busy ? 'disabled' : ''}>${s.no} ${esc(s.name)}</button>`).join('');
+  $('bulk').hidden = rest.length === 0;
+  $('bulk').disabled = busy;
+  $('bulk').textContent = done === 0 ? '全員まとめて決める' : `残り${rest.length}人をまとめて決める`;
+  $('commit').hidden = rest.length > 0 || committed;
+  $('commit').disabled = busy;
+  $('reset').hidden = done === 0 || committed;
+  $('reset').disabled = busy;
+}
+
+async function countdown() {
+  const ov = document.createElement('div');
+  ov.className = 'count';
+  document.body.appendChild(ov);
+  for (const n of [3, 2, 1]) {
+    ov.innerHTML = `<span>${n}</span>`;
+    await sleep(900);
+  }
+  ov.remove();
+}
+
+/* 選んだ生徒の席を1人ずつ決める:空いている席をハイライトが跳ね回り、だんだん遅くなって止まる */
+async function decideOne(s) {
+  if (busy || !s) return;
+  busy = true;
+  const my = runId;
+  refreshPanel();
+  const free = freeSeats();
+  const target = free[Math.floor(Math.random() * free.length)];
+  setBanner(`${s.name} さんの席は…`);
+  let prev = null;
+  const steps = 18;
+  for (let k = 0; k < steps; k++) {
+    const i = k === steps - 1 ? target : free[Math.floor(Math.random() * free.length)];
+    if (prev != null) seatCell(prev).classList.remove('hop');
+    seatCell(i).classList.add('hop');
+    prev = i;
+    await sleep(60 + k * k);   // だんだん遅く
+    if (my !== runId) return;
+  }
+  await sleep(250);
+  if (my !== runId) return;
+  current[target] = s;
+  land(target);
+  setBanner(`${s.name} さん、決定!`);
+  busy = false;
+  refreshPanel();
+}
+
+/* まだ決まっていない生徒をまとめて決める(誰も決まっていなければ全員) */
+async function decideRest() {
+  if (busy) return;
+  const rest = shuffle(undecided());
+  if (!rest.length) return;
+  busy = true;
+  const my = runId;
+  refreshPanel();
+  setBanner(rest.length === cls.students.length ? 'みんなの席は…' : `残り ${rest.length}人 の席は…`);
+
+  await countdown();
+  if (my !== runId) return;
+
+  const free = freeSeats();
+  const plan = {};
+  free.forEach((i, k) => { plan[i] = rest[k]; });
+  const names = rest.map(x => x.name);
+
+  // まだ決まっていない席だけシャッフル
+  free.forEach(i => {
+    const c = seatCell(i);
+    c.classList.add('spinning');
+    const nm = c.querySelector('.nm');
+    timers[i] = setInterval(() => {
+      nm.textContent = names[Math.floor(Math.random() * names.length)];
+    }, 70);
+  });
+
+  // 前の列から順に止める
+  let first = true;
+  for (let r = 0; r < ROWS; r++) {
+    const row = free.filter(i => Math.floor(i / COLS) === r);
+    if (!row.length) continue;
+    await sleep(first ? 1000 : 600);
+    first = false;
+    if (my !== runId) return;
+    row.forEach(i => {
+      clearInterval(timers[i]);
+      delete timers[i];
+      current[i] = plan[i];
+      land(i);
+    });
+  }
+  setBanner('全員の席が決まりました!');
+  busy = false;
+  refreshPanel();
+}
+
+renderStart();
+
+/* オフラインでも起動できるようにする(Webで公開したときだけ動く) */
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+/* ホーム画面のアプリのデータを、iPadが勝手に消さないようにお願いする */
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+</script>
+</body>
+</html>
